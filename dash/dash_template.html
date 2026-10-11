@@ -1,0 +1,263 @@
+<title>27PRC 가상 텔레메트리</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<style>
+/* 레이아웃: 상단 조작 바 → 3열(엔진 게이지 | 코스 지도 | g-g·바퀴) → 하단 다이노 곡선. 피트월 모니터 느낌의 단일 어두운 테마 */
+:root{
+  --bg:#0b0f14; --panel:#121820; --line:#1f2a36; --fg:#e6edf3; --muted:#8a9bb0;
+  --accent:#ffb020; --speed:#4fc3f7; --torque:#ff7043; --power:#9ccc65; --warn:#ff5252; --ok:#2ecc71;
+  --display:"Barlow Condensed", "Malgun Gothic", sans-serif; --mono:"JetBrains Mono", Consolas, monospace;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--display);font-size:14px}
+.wrap{padding-block:10px;padding-inline:16px;display:flex;flex-direction:column;gap:10px;min-height:100%;box-sizing:border-box}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+.bar h1{font-size:20px;margin:0;font-weight:700;letter-spacing:.02em}
+.badge{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:4px;background:#3a1f1f;color:#ff8a80;border:1px solid #5a2a2a;letter-spacing:.06em}
+.bar select,.bar button,.bar input[type=file]{font-family:var(--display);font-size:14px;background:#0f141b;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 10px}
+.bar button{cursor:pointer;min-width:64px}
+.bar button:focus-visible,.bar select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.bar button.primary{background:var(--accent);color:#1a1200;border-color:var(--accent);font-weight:700}
+.bar .grow{flex:1 1 220px;min-width:160px;display:flex;align-items:center;gap:8px}
+.bar input[type=range]{flex:1;accent-color:var(--accent)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.grid{display:grid;grid-template-columns:minmax(260px,1fr) minmax(280px,1.3fr) minmax(260px,1fr);gap:10px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;min-width:0;display:flex;flex-direction:column;gap:8px}
+.panel h2{margin:0;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:500}
+canvas{width:100%;height:auto;display:block}
+.tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.tile{background:#0f141b;border:1px solid var(--line);border-radius:6px;padding:6px 10px}
+.tile .l{font-size:11px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+.tile .v{font-family:var(--mono);font-size:22px;font-weight:700;line-height:1.1}
+.tile .u{font-size:11px;color:var(--muted);margin-left:4px}
+.wheels{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.wheel{background:#0f141b;border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+.wheel .n{font-size:11px;color:var(--muted);letter-spacing:.1em}
+.wheel .s{font-family:var(--mono);font-size:16px;font-weight:700}
+.wheel .f{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.slipbar{height:5px;background:#1a2330;border-radius:3px;overflow:hidden;margin-top:4px}
+.slipbar i{display:block;height:100%;background:var(--ok);width:0}
+.bottom{display:grid;grid-template-columns:2fr 1fr;gap:10px}
+.note{font-size:12px;color:var(--muted);line-height:1.5}
+.note b{color:var(--fg)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:12px;color:var(--muted)}
+.kv span.mono{color:var(--fg)}
+@media (max-width:900px){.grid{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}}
+@media (max-width:600px){.grid{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <div class="bar">
+    <h1>27PRC 가상 텔레메트리</h1>
+    <span class="badge">SIMULATED DATA</span>
+    <select id="run" aria-label="주행 선택"></select>
+    <button id="play" class="primary">재생</button>
+    <button id="reset">처음</button>
+    <select id="speed" aria-label="재생 배속"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select>
+    <div class="grow"><span class="mono" id="tcur">0.00</span><input id="seek" type="range" min="0" max="1000" value="0" aria-label="시간"><span class="mono" id="tend">0.00 s</span></div>
+    <label style="font-size:12px;color:var(--muted)">JSON 불러오기 <input id="file" type="file" accept=".json"></label>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>엔진 · 구동</h2>
+      <canvas id="rpm" width="520" height="400"></canvas>
+      <div class="tiles">
+        <div class="tile"><div class="l">토크</div><div><span class="v" id="vTq">0</span><span class="u">N·m</span></div></div>
+        <div class="tile"><div class="l">출력</div><div><span class="v" id="vKw">0</span><span class="u">kW</span></div></div>
+        <div class="tile"><div class="l">스로틀</div><div><span class="v" id="vTps">0</span><span class="u">%</span></div></div>
+        <div class="tile"><div class="l">제동압 (전)</div><div><span class="v" id="vBrk">0</span><span class="u">bar</span></div></div>
+      </div>
+      <canvas id="pedals" width="520" height="70"></canvas>
+    </div>
+
+    <div class="panel">
+      <h2>코스 · 차량 위치</h2>
+      <canvas id="map" width="640" height="520"></canvas>
+      <div class="kv">
+        <span>구간 시간</span><span class="mono" id="kLap">–</span>
+        <span>준정상상태 상한</span><span class="mono" id="kQss">–</span>
+        <span>핸들각</span><span class="mono" id="kSw">0.0°</span>
+        <span>요레이트</span><span class="mono" id="kYaw">0.0 °/s</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>g-g · 바퀴</h2>
+      <canvas id="gg" width="520" height="300"></canvas>
+      <div class="wheels">
+        <div class="wheel" id="w0"><div class="n">FL</div><div class="s">0.00</div><div class="f">0 N</div><div class="slipbar"><i></i></div></div>
+        <div class="wheel" id="w1"><div class="n">FR</div><div class="s">0.00</div><div class="f">0 N</div><div class="slipbar"><i></i></div></div>
+        <div class="wheel" id="w2"><div class="n">RL</div><div class="s">0.00</div><div class="f">0 N</div><div class="slipbar"><i></i></div></div>
+        <div class="wheel" id="w3"><div class="n">RR</div><div class="s">0.00</div><div class="f">0 N</div><div class="slipbar"><i></i></div></div>
+      </div>
+      <div class="tile"><div class="l">TCS 토크 감소</div><div><span class="v" id="vTcs">0</span><span class="u">%</span></div></div>
+    </div>
+  </div>
+
+  <div class="bottom">
+    <div class="panel">
+      <h2>가상 다이노 · 현재 운전점</h2>
+      <canvas id="dyno" width="1000" height="300"></canvas>
+    </div>
+    <div class="panel">
+      <h2>최근 10초</h2>
+      <canvas id="strip" width="520" height="300"></canvas>
+      <div class="note" id="note">가상 데이터예요. 토크 곡선은 PRC-26 설계보고서의 두 점에 맞춘 가정 곡선이고, 타이어·요 관성·운전자는 가정값이에요. 실측이 들어오면 같은 JSON 형식으로 바꿔 「JSON 불러오기」로 열면 돼요.</div>
+    </div>
+  </div>
+</div>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+(function(){
+'use strict';
+let DATA = JSON.parse(document.getElementById('data').textContent);
+const $ = id => document.getElementById(id);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+let run, idx = 0, playing = false, rate = 1, tPlay = 0, lastTs = 0;
+
+function fitCanvas(c){ const r = c.getBoundingClientRect(); const dpr = Math.min(window.devicePixelRatio||1, 2);
+  const w = Math.max(200, Math.round(r.width*dpr)); const h = Math.round(w * c.getAttribute('height') / c.getAttribute('width'));
+  if (c.width !== w || c.height !== h){ c.width = w; c.height = h; } return c.getContext('2d'); }
+
+function lerpIdx(t){ // 시간 t → 보간 인덱스
+  const n = run.t.length; if (t <= run.t[0]) return 0; if (t >= run.t[n-1]) return n-1;
+  let i = Math.min(n-2, Math.max(0, Math.floor(t / run.dt))); while (run.t[i+1] < t) i++; while (run.t[i] > t) i--; return i; }
+function at(arr, i){ return Array.isArray(arr[0]) ? arr[i] : arr[i]; }
+
+function setRun(k){ run = DATA.runs[k]; idx = 0; tPlay = 0; playing = false; $('play').textContent = '재생';
+  $('tend').textContent = run.t[run.t.length-1].toFixed(2) + ' s';
+  $('kLap').textContent = Number.isFinite(run.lap_time_s) ? run.lap_time_s.toFixed(2) + ' s' : '–';
+  if (run.note) $('note').innerHTML = '<b>' + run.name + '</b> — ' + run.note + ' (' + (run.source||'') + ')';
+  $('kQss').textContent = Number.isFinite(run.qss_time_s) ? run.qss_time_s.toFixed(2) + ' s' : '–';
+  draw(); }
+
+// ---------- RPM 게이지 ----------
+function drawRpm(){ const c = $('rpm'), g = fitCanvas(c), W = c.width, H = c.height, cx = W/2, cy = H*0.52, R = Math.min(W*0.36, H*0.36);
+  g.clearRect(0,0,W,H);
+  const rmax = Math.ceil(DATA.dyno.rpm_limit/1000)*1000, a0 = Math.PI*0.8, a1 = Math.PI*2.2;
+  const ang = v => a0 + (a1-a0)*Math.min(Math.max(v,0),rmax)/rmax;
+  g.lineWidth = R*0.16; g.lineCap = 'butt';
+  g.strokeStyle = '#1a2330'; g.beginPath(); g.arc(cx,cy,R,a0,a1); g.stroke();
+  // 변속 구간·리밋
+  g.strokeStyle = 'rgba(255,176,32,0.35)'; g.beginPath(); g.arc(cx,cy,R,ang(DATA.dyno.shift_rpm),ang(DATA.dyno.rpm_limit)); g.stroke();
+  g.strokeStyle = 'rgba(255,82,82,0.45)'; g.beginPath(); g.arc(cx,cy,R,ang(DATA.dyno.rpm_limit),a1); g.stroke();
+  const rpm = run.rpm[idx];
+  g.strokeStyle = rpm >= DATA.dyno.shift_rpm ? css('--accent') : css('--speed'); g.beginPath(); g.arc(cx,cy,R,a0,ang(rpm)); g.stroke();
+  g.fillStyle = css('--muted'); g.font = `${R*0.11}px ${css('--mono')}`; g.textAlign='center'; g.textBaseline='middle';
+  for (let v=0; v<=rmax; v+=1000){ const a = ang(v); g.fillText(String(v/1000), cx+Math.cos(a)*R*1.22, cy+Math.sin(a)*R*1.22); }
+  g.fillStyle = css('--fg'); g.font = `700 ${R*0.42}px ${css('--mono')}`; g.fillText(Math.round(rpm).toString(), cx, cy - R*0.12);
+  g.fillStyle = css('--muted'); g.font = `${R*0.12}px ${css('--display')}`; g.fillText('RPM', cx, cy + R*0.16);
+  // 기어·속도
+  g.fillStyle = css('--accent'); g.font = `700 ${R*0.5}px ${css('--display')}`; g.fillText(run.gear[idx] > 0 ? String(run.gear[idx]) : 'N', cx - R*0.8, cy + R*0.78);
+  g.fillStyle = css('--muted'); g.font = `${R*0.11}px ${css('--display')}`; g.fillText('GEAR', cx - R*0.8, cy + R*1.08);
+  g.fillStyle = css('--speed'); g.font = `700 ${R*0.42}px ${css('--mono')}`; g.fillText(run.v_kmh[idx].toFixed(0), cx + R*0.8, cy + R*0.78);
+  g.fillStyle = css('--muted'); g.font = `${R*0.11}px ${css('--display')}`; g.fillText('km/h', cx + R*0.8, cy + R*1.08);
+  // 시프트 라이트
+  if (rpm >= DATA.dyno.shift_rpm){ g.fillStyle = css('--accent'); g.beginPath(); g.arc(cx, cy - R*0.62, R*0.07, 0, Math.PI*2); g.fill(); }
+}
+function drawPedals(){ const c = $('pedals'), g = fitCanvas(c), W = c.width, H = c.height; g.clearRect(0,0,W,H);
+  const bars = [['TPS', run.tps[idx], css('--power')], ['BRK', Math.min(run.pF[idx]/80,1), css('--warn')]];
+  bars.forEach((b,i)=>{ const y = i*(H/2)+H*0.08, h = H*0.34; g.fillStyle='#1a2330'; g.fillRect(W*0.1,y,W*0.88,h); g.fillStyle=b[2]; g.fillRect(W*0.1,y,W*0.88*b[1],h);
+    g.fillStyle=css('--muted'); g.font=`${H*0.26}px ${css('--mono')}`; g.textAlign='right'; g.textBaseline='middle'; g.fillText(b[0], W*0.085, y+h/2); });
+}
+// ---------- 코스 지도 ----------
+let mapCache = null;
+function drawMap(){ const c = $('map'), g = fitCanvas(c), W = c.width, H = c.height; g.clearRect(0,0,W,H);
+  const rd = run.road; const xs = rd.x, ys = rd.y;
+  const minx = Math.min(...xs)-4, maxx = Math.max(...xs)+4, miny = Math.min(...ys)-4, maxy = Math.max(...ys)+4;
+  const sc = Math.min((W-20)/(maxx-minx), (H-20)/(maxy-miny)); const ox = (W - (maxx-minx)*sc)/2, oy = (H - (maxy-miny)*sc)/2;
+  const X = x => ox + (x-minx)*sc, Y = y => H - (oy + (y-miny)*sc);
+  g.lineCap='round'; g.lineJoin='round';
+  g.strokeStyle = '#1f2a36'; g.lineWidth = rd.width*sc; g.beginPath(); for (let i=0;i<xs.length;i++){ i?g.lineTo(X(xs[i]),Y(ys[i])):g.moveTo(X(xs[i]),Y(ys[i])); } if (rd.closed) g.closePath(); g.stroke();
+  g.strokeStyle = '#2b3a4b'; g.lineWidth = 1; g.beginPath(); for (let i=0;i<xs.length;i++){ i?g.lineTo(X(xs[i]),Y(ys[i])):g.moveTo(X(xs[i]),Y(ys[i])); } if (rd.closed) g.closePath(); g.stroke();
+  // 지나온 궤적: 속도 색
+  const vmax = Math.max(...run.v_kmh) || 1;
+  g.lineWidth = Math.max(2, 1.0*sc);
+  for (let i=1;i<=idx;i++){ const f = run.v_kmh[i]/vmax; g.strokeStyle = `hsl(${(1-f)*220},90%,55%)`; g.beginPath(); g.moveTo(X(run.x[i-1]),Y(run.y[i-1])); g.lineTo(X(run.x[i]),Y(run.y[i])); g.stroke(); }
+  // 차량
+  const yaw = Math.atan2(run.y[Math.min(idx+1,run.y.length-1)]-run.y[Math.max(idx-1,0)], run.x[Math.min(idx+1,run.x.length-1)]-run.x[Math.max(idx-1,0)]);
+  g.save(); g.translate(X(run.x[idx]), Y(run.y[idx])); g.rotate(-yaw);
+  const L = Math.max(10, 2.9*sc), Wd = Math.max(6, 1.4*sc);
+  g.fillStyle = css('--accent'); g.fillRect(-L/2,-Wd/2,L,Wd); g.fillStyle = '#1a1200'; g.fillRect(L/2-L*0.25,-Wd/2,L*0.25,Wd); g.restore();
+  g.fillStyle = css('--muted'); g.font = `${Math.max(11,W*0.02)}px ${css('--display')}`; g.textAlign='left'; g.textBaseline='top';
+  g.fillText(`${run.name}  ·  s = ${run.s[idx].toFixed(0)} m`, 10, 8);
+}
+// ---------- g-g ----------
+function drawGG(){ const c = $('gg'), g = fitCanvas(c), W = c.width, H = c.height; g.clearRect(0,0,W,H);
+  const cx = W/2, cy = H/2, R = Math.min(W,H)*0.42, gmax = 2;
+  g.strokeStyle='#1f2a36'; g.lineWidth=1; [0.5,1,1.5,2].forEach(r=>{ g.beginPath(); g.arc(cx,cy,R*r/gmax,0,Math.PI*2); g.stroke(); });
+  g.beginPath(); g.moveTo(cx-R,cy); g.lineTo(cx+R,cy); g.moveTo(cx,cy-R); g.lineTo(cx,cy+R); g.stroke();
+  g.strokeStyle='rgba(255,82,82,0.5)'; g.setLineDash([4,4]); g.beginPath(); g.arc(cx,cy,R*1.5/gmax,0,Math.PI*2); g.stroke(); g.setLineDash([]);
+  g.fillStyle=css('--muted'); g.font=`${R*0.1}px ${css('--mono')}`; g.textAlign='center'; g.textBaseline='top'; g.fillText('a_y [g]  →  +좌회전', cx, cy+R*1.08); g.save(); g.translate(cx-R*1.1,cy); g.rotate(-Math.PI/2); g.fillText('a_x [g]',0,0); g.restore();
+  const i0 = Math.max(0, idx - Math.round(10/run.dt));
+  g.strokeStyle='rgba(79,195,247,0.6)'; g.lineWidth=1.5; g.beginPath();
+  for (let i=i0;i<=idx;i++){ const x = cx + run.ay_g[i]/gmax*R, y = cy - run.ax_g[i]/gmax*R; i===i0?g.moveTo(x,y):g.lineTo(x,y); } g.stroke();
+  g.fillStyle=css('--accent'); g.beginPath(); g.arc(cx + run.ay_g[idx]/gmax*R, cy - run.ax_g[idx]/gmax*R, R*0.05, 0, Math.PI*2); g.fill();
+  g.fillStyle=css('--fg'); g.font=`700 ${R*0.13}px ${css('--mono')}`; g.textAlign='right'; g.textBaseline='bottom';
+  g.fillText(`ax ${run.ax_g[idx].toFixed(2)}  ay ${run.ay_g[idx].toFixed(2)} g`, W-8, H-6);
+}
+// ---------- 다이노 곡선 + 운전점 ----------
+function drawDyno(){ const c = $('dyno'), g = fitCanvas(c), W = c.width, H = c.height; g.clearRect(0,0,W,H);
+  const D = DATA.dyno, pl = 56, pr = 56, pt = 16, pb = 30, w = W-pl-pr, h = H-pt-pb;
+  const r0 = D.rpm[0], r1 = D.rpm[D.rpm.length-1], tmax = Math.ceil(Math.max(...D.torque)/5)*5, kmax = Math.ceil(Math.max(...D.kW)/5)*5;
+  const X = r => pl + (r-r0)/(r1-r0)*w, YT = t => pt + h - t/tmax*h, YK = k => pt + h - k/kmax*h;
+  g.strokeStyle='#1f2a36'; g.lineWidth=1; for (let r=2000;r<=r1;r+=2000){ g.beginPath(); g.moveTo(X(r),pt); g.lineTo(X(r),pt+h); g.stroke(); }
+  g.fillStyle=css('--muted'); g.font=`${Math.max(10,H*0.045)}px ${css('--mono')}`; g.textAlign='center'; g.textBaseline='top';
+  for (let r=2000;r<=r1;r+=2000) g.fillText(String(r), X(r), pt+h+6);
+  g.textAlign='right'; g.textBaseline='middle'; g.fillStyle=css('--torque'); for (let t=0;t<=tmax;t+=10) g.fillText(String(t), pl-6, YT(t));
+  g.textAlign='left'; g.fillStyle=css('--power'); for (let k=0;k<=kmax;k+=10) g.fillText(String(k), pl+w+6, YK(k));
+  g.lineWidth=2.5; g.strokeStyle=css('--torque'); g.beginPath(); D.rpm.forEach((r,i)=>{ i?g.lineTo(X(r),YT(D.torque[i])):g.moveTo(X(r),YT(D.torque[i])); }); g.stroke();
+  g.strokeStyle=css('--power'); g.beginPath(); D.rpm.forEach((r,i)=>{ i?g.lineTo(X(r),YK(D.kW[i])):g.moveTo(X(r),YK(D.kW[i])); }); g.stroke();
+  g.strokeStyle='rgba(255,176,32,0.5)'; g.setLineDash([5,4]); g.beginPath(); g.moveTo(X(D.shift_rpm),pt); g.lineTo(X(D.shift_rpm),pt+h); g.stroke(); g.setLineDash([]);
+  // 현재 운전점 (실제 토크 = 스로틀·TCS 반영)
+  const rpm = Math.min(Math.max(run.rpm[idx], r0), r1), tq = run.torque_Nm[idx], kw = run.power_kW[idx];
+  g.fillStyle=css('--torque'); g.beginPath(); g.arc(X(rpm), YT(Math.max(tq,0)), 7, 0, Math.PI*2); g.fill();
+  g.fillStyle=css('--power'); g.beginPath(); g.arc(X(rpm), YK(Math.max(kw,0)), 7, 0, Math.PI*2); g.fill();
+  g.strokeStyle='rgba(230,237,243,0.35)'; g.lineWidth=1; g.beginPath(); g.moveTo(X(rpm),pt); g.lineTo(X(rpm),pt+h); g.stroke();
+  g.fillStyle=css('--muted'); g.font=`${Math.max(10,H*0.045)}px ${css('--display')}`; g.textAlign='left'; g.textBaseline='top';
+  g.fillText('토크 N·m (왼쪽)  ·  출력 kW (오른쪽)  ·  점 = 현재 운전점  ·  점선 = 변속 rpm', pl, pt);
+}
+// ---------- 스트립 차트 ----------
+function drawStrip(){ const c = $('strip'), g = fitCanvas(c), W = c.width, H = c.height; g.clearRect(0,0,W,H);
+  const n = Math.round(10/run.dt), i0 = Math.max(0, idx-n), pl = 8, w = W-16;
+  const series = [['v km/h', run.v_kmh, 120, css('--speed')], ['rpm/100', run.rpm.map(v=>v/100), 110, css('--accent')], ['slip RR ×100', run.slip4.map(s=>s[3]*100), 60, css('--warn')]];
+  const rows = series.length, rh = (H-10)/rows;
+  series.forEach((s,k)=>{ const y0 = 5 + k*rh, h = rh-10;
+    g.strokeStyle='#1f2a36'; g.strokeRect(pl, y0, w, h);
+    g.strokeStyle=s[3]; g.lineWidth=1.5; g.beginPath();
+    for (let i=i0;i<=idx;i++){ const x = pl + w*(1 - (idx-i)/n), y = y0 + h - Math.min(Math.max(s[1][i],0),s[2])/s[2]*h; i===i0?g.moveTo(x,y):g.lineTo(x,y); } g.stroke();
+    g.fillStyle=css('--muted'); g.font=`${Math.max(10,H*0.04)}px ${css('--mono')}`; g.textAlign='left'; g.textBaseline='top'; g.fillText(`${s[0]}  ${s[1][idx].toFixed(1)}`, pl+6, y0+4); });
+}
+function drawTiles(){
+  $('vTq').textContent = run.torque_Nm[idx].toFixed(1); $('vKw').textContent = run.power_kW[idx].toFixed(1);
+  $('vTps').textContent = Math.round(run.tps[idx]*100); $('vBrk').textContent = run.pF[idx].toFixed(0);
+  $('vTcs').textContent = Math.round(run.tcs_cut[idx]*100); $('vTcs').style.color = run.tcs_cut[idx] > 0.01 ? css('--accent') : css('--fg');
+  $('kSw').textContent = run.sw_deg[idx].toFixed(1) + '°'; $('kYaw').textContent = run.yaw_dps[idx].toFixed(1) + ' °/s';
+  for (let k=0;k<4;k++){ const w = $('w'+k), s = run.slip4[idx][k], f = run.Fz4[idx][k];
+    w.querySelector('.s').textContent = (s==null?0:s).toFixed(2); w.querySelector('.f').textContent = (f==null ? '– N (로그에 없음)' : f.toFixed(0) + ' N');
+    const sa = Math.abs(s==null?0:s); const bar = w.querySelector('.slipbar i'); bar.style.width = Math.min(sa/0.3,1)*100 + '%';
+    bar.style.background = sa > 0.15 ? css('--warn') : sa > 0.08 ? css('--accent') : css('--ok'); }
+  $('tcur').textContent = run.t[idx].toFixed(2); $('seek').value = Math.round(1000*run.t[idx]/run.t[run.t.length-1]);
+}
+function draw(){ drawRpm(); drawPedals(); drawMap(); drawGG(); drawDyno(); drawStrip(); drawTiles(); }
+
+function frame(ts){ if (playing){ const dt = lastTs ? (ts-lastTs)/1000 : 0; tPlay += dt*rate; const tEnd = run.t[run.t.length-1];
+    if (tPlay >= tEnd){ tPlay = tEnd; playing = false; $('play').textContent = '재생'; }
+    idx = lerpIdx(tPlay); draw(); } lastTs = ts; requestAnimationFrame(frame); }
+
+$('play').addEventListener('click', ()=>{ if (!playing && tPlay >= run.t[run.t.length-1]) tPlay = 0; playing = !playing; $('play').textContent = playing ? '일시정지' : '재생'; });
+$('reset').addEventListener('click', ()=>{ tPlay = 0; idx = 0; playing = false; $('play').textContent = '재생'; draw(); });
+$('speed').addEventListener('change', e => { rate = parseFloat(e.target.value); });
+$('seek').addEventListener('input', e => { tPlay = run.t[run.t.length-1]*e.target.value/1000; idx = lerpIdx(tPlay); draw(); });
+$('run').addEventListener('change', e => setRun(parseInt(e.target.value,10)));
+$('file').addEventListener('change', e => { const f = e.target.files[0]; if (!f) return; const rd = new FileReader();
+  rd.onload = () => { try { DATA = JSON.parse(rd.result); fillRuns(); setRun(0); $('note').innerHTML = '<b>불러온 파일:</b> ' + f.name + ' — ' + (DATA.note || ''); } catch(err){ $('note').textContent = 'JSON을 읽지 못했어요: ' + err.message; } };
+  rd.readAsText(f); });
+function fillRuns(){ const sel = $('run'); sel.innerHTML = ''; DATA.runs.forEach((r,i)=>{ const o = document.createElement('option'); o.value = i; o.textContent = r.name + (Number.isFinite(r.lap_time_s) ? ` (${r.lap_time_s.toFixed(2)} s)` : ''); sel.appendChild(o); }); }
+window.addEventListener('resize', draw);
+fillRuns(); setRun(0); requestAnimationFrame(frame);
+})();
+</script>

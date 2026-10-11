@@ -1,0 +1,136 @@
+VERSION "PRC27_sim_v0.1 - SIMULATION ONLY. EMU_SIM_* is a placeholder, not the official EMU BLACK stream."
+
+
+NS_ :
+	CM_
+	BA_DEF_
+	BA_
+	VAL_
+	BA_DEF_DEF_
+
+BS_:
+
+BU_: ECU DAQ DASH WSS
+
+
+BO_ 1536 EMU_SIM_0: 8 ECU
+ SG_ RPM : 0|16@1+ (1,0) [0|16000] "rpm" DAQ,DASH
+ SG_ TPS : 16|8@1+ (0.5,0) [0|100] "%" DAQ,DASH
+ SG_ IAT : 24|8@1- (1,0) [-40|127] "degC" DAQ,DASH
+ SG_ MAP : 32|16@1+ (0.1,0) [0|600] "kPa" DAQ,DASH
+ SG_ InjPw : 48|16@1+ (0.001,0) [0|65.534] "ms" DAQ,DASH
+
+BO_ 1537 EMU_SIM_1: 8 ECU
+ SG_ CLT : 0|16@1- (0.1,0) [-40|250] "degC" DAQ,DASH
+ SG_ Lambda : 16|8@1+ (0.01,0) [0|2.54] "" DAQ,DASH
+ SG_ IgnAngle : 24|8@1- (0.5,0) [-60|63.5] "deg" DAQ,DASH
+ SG_ Gear : 32|4@1+ (1,0) [0|15] "" DAQ,DASH
+ SG_ EmuSeq : 36|4@1+ (1,0) [0|15] "" DAQ,DASH
+ SG_ Vbat : 40|8@1+ (0.1,0) [0|25.4] "V" DAQ,DASH
+ SG_ TcCutPct : 48|8@1+ (0.5,0) [0|100] "%" DAQ,DASH
+
+BO_ 1664 DAQ_Temp: 8 DAQ
+ SG_ T1 : 0|12@1+ (0.1,-40) [-40|369.4] "degC" DASH
+ SG_ T2 : 12|12@1+ (0.1,-40) [-40|369.4] "degC" DASH
+ SG_ T3 : 24|12@1+ (0.1,-40) [-40|369.4] "degC" DASH
+ SG_ T4 : 36|12@1+ (0.1,-40) [-40|369.4] "degC" DASH
+ SG_ TempValid : 48|4@1+ (1,0) [0|15] "" DASH
+ SG_ TempSeq : 52|4@1+ (1,0) [0|15] "" DASH
+
+BO_ 1665 DAQ_Shock: 8 DAQ
+ SG_ ShockFL : 0|12@1+ (0.025,0) [0|102.35] "mm" DASH
+ SG_ ShockFR : 12|12@1+ (0.025,0) [0|102.35] "mm" DASH
+ SG_ ShockRL : 24|12@1+ (0.025,0) [0|102.35] "mm" DASH
+ SG_ ShockRR : 36|12@1+ (0.025,0) [0|102.35] "mm" DASH
+ SG_ ShockValid : 48|4@1+ (1,0) [0|15] "" DASH
+ SG_ ShockSat : 52|4@1+ (1,0) [0|15] "" DASH
+ SG_ ShockSeq : 56|8@1+ (1,0) [0|255] "" DASH
+
+BO_ 1668 DAQ_Chassis: 8 DAQ
+ SG_ SteerAngle : 0|16@1- (0.1,0) [-780|780] "deg" DASH
+ SG_ BrkPressF : 16|12@1+ (0.05,0) [0|204.7] "bar" DASH
+ SG_ BrkPressR : 28|12@1+ (0.05,0) [0|204.7] "bar" DASH
+ SG_ ChassisValid : 40|4@1+ (1,0) [0|15] "" DASH
+ SG_ ChassisSeq : 44|4@1+ (1,0) [0|15] "" DASH
+ SG_ BrkLight : 48|1@1+ (1,0) [0|1] "" DASH
+
+BO_ 1680 DAQ_GNSS_Pos: 8 DAQ
+ SG_ Latitude : 0|32@1- (1E-007,0) [-90|90] "deg" DASH
+ SG_ Longitude : 32|32@1- (1E-007,0) [-180|180] "deg" DASH
+
+BO_ 1681 DAQ_GNSS_Vel: 8 DAQ
+ SG_ GnssSpeed : 0|16@1+ (0.01,0) [0|655.34] "km/h" DASH
+ SG_ GnssHeading : 16|16@1+ (0.01,0) [0|359.99] "deg" DASH
+ SG_ NumSV : 32|8@1+ (1,0) [0|255] "" DASH
+ SG_ FixType : 40|8@1+ (1,0) [0|5] "" DASH
+ SG_ HAcc : 48|8@1+ (0.1,0) [0|25.5] "m" DASH
+ SG_ GnssSeq : 56|8@1+ (1,0) [0|255] "" DASH
+
+BO_ 1682 DAQ_IMU_Acc: 8 DAQ
+ SG_ AccX : 0|16@1- (0.001,0) [-32.768|32.767] "g" DASH
+ SG_ AccY : 16|16@1- (0.001,0) [-32.768|32.767] "g" DASH
+ SG_ AccZ : 32|16@1- (0.001,0) [-32.768|32.767] "g" DASH
+ SG_ ImuSeq : 48|8@1+ (1,0) [0|255] "" DASH
+ SG_ ImuStatus : 56|8@1+ (1,0) [0|255] "" DASH
+
+BO_ 1683 DAQ_IMU_Gyro: 8 DAQ
+ SG_ GyroX : 0|16@1- (0.1,0) [-3276.8|3276.7] "deg/s" DASH
+ SG_ GyroY : 16|16@1- (0.1,0) [-3276.8|3276.7] "deg/s" DASH
+ SG_ GyroZ : 32|16@1- (0.1,0) [-3276.8|3276.7] "deg/s" DASH
+ SG_ ImuSeq : 48|8@1+ (1,0) [0|255] "" DASH
+ SG_ ImuStatus : 56|8@1+ (1,0) [0|255] "" DASH
+
+BO_ 1696 DAQ_Status: 8 DAQ
+ SG_ DaqUptime : 0|16@1+ (1,0) [0|65535] "s" DASH
+ SG_ LogState : 16|4@1+ (1,0) [0|15] "" DASH
+ SG_ DaqErrFlags : 20|12@1+ (1,0) [0|4095] "" DASH
+ SG_ SdFree : 32|8@1+ (1,0) [0|100] "%" DASH
+ SG_ DropCount : 40|16@1+ (1,0) [0|65535] "" DASH
+ SG_ DaqVbat : 56|8@1+ (0.1,0) [0|25.5] "V" DASH
+
+BO_ 1697 DASH_Status: 8 DASH
+ SG_ DashUptime : 0|16@1+ (1,0) [0|65535] "s" DAQ
+ SG_ DashState : 16|8@1+ (1,0) [0|255] "" DAQ
+ SG_ DashErrFlags : 24|16@1+ (1,0) [0|65535] "" DAQ
+
+BO_ 1698 DASH_Mark: 3 DASH
+ SG_ MarkSeq : 0|16@1+ (1,0) [0|65535] "" DAQ
+ SG_ MarkType : 16|8@1+ (1,0) [0|255] "" DAQ
+
+BO_ 1699 DAQ_MarkAck: 5 DAQ
+ SG_ MarkSeq : 0|16@1+ (1,0) [0|65535] "" DASH
+ SG_ AckResult : 16|8@1+ (1,0) [0|255] "" DASH
+ SG_ LogFileIdx : 24|16@1+ (1,0) [0|65535] "" DASH
+
+BO_ 1712 WSS_Speed: 8 WSS
+ SG_ WssFL : 0|16@1+ (0.01,0) [0|655.34] "km/h" ECU,DAQ,DASH
+ SG_ WssFR : 16|16@1+ (0.01,0) [0|655.34] "km/h" ECU,DAQ,DASH
+ SG_ WssRL : 32|16@1+ (0.01,0) [0|655.34] "km/h" ECU,DAQ,DASH
+ SG_ WssRR : 48|16@1+ (0.01,0) [0|655.34] "km/h" ECU,DAQ,DASH
+
+BO_ 1713 WSS_TCS: 8 WSS
+ SG_ WssValid : 0|4@1+ (1,0) [0|15] "" ECU,DAQ,DASH
+ SG_ WssSeq : 4|4@1+ (1,0) [0|15] "" ECU,DAQ,DASH
+ SG_ TcsMode : 8|4@1+ (1,0) [0|15] "" ECU,DAQ,DASH
+ SG_ TcsReason : 12|4@1+ (1,0) [0|15] "" ECU,DAQ,DASH
+ SG_ VehSpeedRef : 16|16@1+ (0.01,0) [0|655.34] "km/h" ECU,DAQ,DASH
+ SG_ SlipDrive : 32|16@1- (0.001,0) [-32.767|32.767] "" ECU,DAQ,DASH
+ SG_ TcsCutReq : 48|8@1+ (0.5,0) [0|100] "%" ECU,DAQ,DASH
+ SG_ TcsSeq : 56|8@1+ (1,0) [0|255] "" ECU,DAQ,DASH
+
+
+CM_ "Simulation DBC (2026-10-04, CLAUDE). DAQ_* frames copied from 01_설계/PRC27_DAQ_draft_v0.2.dbc. DAQ_Chassis, WSS_Speed, WSS_TCS are new proposals. EMU_SIM_* is a placeholder layout; replace with the official EMU BLACK CAN stream definition for the installed firmware. IDs are not checked against real ECU/zone node IDs.";
+CM_ BO_ 1536 "PLACEHOLDER - not the official EMU BLACK layout.";
+CM_ BO_ 1537 "PLACEHOLDER - not the official EMU BLACK layout.";
+CM_ SG_ 1664 T1 "Raw 0xFFF = invalid. Valid bit0..3 = T1..T4.";
+CM_ SG_ 1665 ShockFL "Raw 0xFFF = invalid. Sat bit0..3 = FL,FR,RL,RR ADC saturation.";
+CM_ SG_ 1668 ChassisValid "bit0 steer, bit1 brake front, bit2 brake rear.";
+CM_ SG_ 1712 WssFL "Raw 0xFFFF = invalid.";
+CM_ SG_ 1713 WssValid "bit0..3 = FL,FR,RL,RR sensor-level valid (module self check).";
+CM_ SG_ 1713 SlipDrive "(driven - reference)/max(reference, floor). Raw 0x8000 = invalid.";
+CM_ SG_ 1696 DaqErrFlags "bit0 SD error, bit1 GNSS no fix, bit2 IMU error, bit3 SENS5V_A fault, bit4 SENS5V_B fault, bit5 power fail seen, bit6 buffer overflow, bit7 UTC unsynced, bit8 CAN2 error, bit9 NTC excitation fault";
+
+VAL_ 1696 LogState 0 "BOOT" 1 "WAIT_SD" 2 "LOGGING" 3 "NO_CARD" 4 "SD_RECOVER" 5 "SD_FAILED" 6 "CARD_FULL" 7 "PFI_FLUSH" 8 "SHUTDOWN" ;
+VAL_ 1681 FixType 0 "NO_FIX" 1 "DEAD_RECKONING" 2 "FIX_2D" 3 "FIX_3D" 4 "GNSS_DR" 5 "TIME_ONLY" ;
+VAL_ 1713 TcsMode 0 "OFF" 1 "STANDBY" 2 "ACTIVE" 3 "FAULT" ;
+VAL_ 1713 TcsReason 0 "NONE" 1 "SWITCH_OFF" 2 "WSS_INVALID" 3 "CAN_TIMEOUT" 4 "LOW_TPS" ;
